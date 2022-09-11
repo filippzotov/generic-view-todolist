@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from .models import Task
 from django.views.generic.list import ListView
 from django.views.generic.detail import DetailView
@@ -29,9 +29,15 @@ class RegisterPage(FormView):
 
     def form_valid(self, form):
         user = form.save()
+        print(user)
         if user is not None:
             login(self.request, user)
         return super(RegisterPage, self).form_valid(form)
+
+    def get(self, *args, **kwargs):
+        if self.request.user.is_authenticated:
+            return redirect("tasks")
+        return super(RegisterPage, self).get(*args, **kwargs)
 
 
 class TaskList(LoginRequiredMixin, ListView):
@@ -42,6 +48,11 @@ class TaskList(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["tasks"] = context["tasks"].filter(user=self.request.user)
         context["count"] = context["tasks"].filter(complete=False).count()
+
+        search_input = self.request.GET.get("search-area") or ""
+        if search_input:
+            context["tasks"] = context["tasks"].filter(title__icontains=search_input)
+        context["search_input"] = search_input
         return context
 
 
@@ -62,7 +73,7 @@ class TaskCreate(LoginRequiredMixin, CreateView):
 
 class TaskUpdate(LoginRequiredMixin, UpdateView):
     model = Task
-    fields = "__all__"
+    fields = ["title", "description", "complete"]
     success_url = reverse_lazy("tasks")
 
 
